@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Ticket Verification</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f4f4f4;
+      text-align: center;
+      padding: 50px;
+    }
+    .result {
+      font-size: 24px;
+      margin-top: 40px;
+      padding: 20px;
+      border-radius: 10px;
+      display: inline-block;
+    }
+    .valid {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    .invalid {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎟️ FTSC Ticket Verification</h1>
+  <div id="result" class="result">Checking ticket ID…</div>
+
+  <script>
+    const resultBox = document.getElementById("result");
+    const urlParams = new URLSearchParams(window.location.search);
+    const ticketId = urlParams.get("id");
+
+    fetch("valid-ids.json")
+      .then(response => response.json())
+      .then(validIds => {
+        if (validIds.includes(ticketId)) {
+          resultBox.textContent = "✅ Valid Ticket: " + ticketId;
+          resultBox.classList.add("valid");
+        } else {
+          resultBox.textContent = "❌ Invalid or Unknown Ticket ID";
+          resultBox.classList.add("invalid");
+        }
+      })
+      .catch(() => {
+        resultBox.textContent = "⚠️ Error loading ticket data";
+        resultBox.classList.add("invalid");
+      });
+  </script>
+</body>
+</html>
