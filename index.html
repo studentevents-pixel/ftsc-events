@@ -11,6 +11,7 @@
     }
     #ticket { display: none; text-align: center; margin-top: 30px; }
     #ticket canvas { margin-top: 10px; }
+    button { margin-top: 10px; padding: 10px 20px; font-size: 16px; cursor: pointer; }
   </style>
 </head>
 <body>
@@ -31,14 +32,13 @@
     <h3>🎟️ Your Ticket</h3>
     <p id="ticketId"></p>
     <canvas id="qrCanvas"></canvas>
-    <p>Scan this QR code to verify your ticket.</p>
+    <p style="color: #555;">📸 Tip: Screenshot this ticket or download it below to keep it safe.</p>
+    <button onclick="downloadTicket()">Download Ticket</button>
   </div>
 
   <script src="https://www.paypal.com/sdk/js?client-id=ASfSCzK1g0fAh0jd1jN8pmcBset8M3FKNQJ6MAKO2wa_fS9ohSkxRJK-pEWNYT-JSgOco9FK1x6hiIR8&currency=USD"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
   <script>
-    const fs = window.require?.('fs'); // Only works in Electron or Node environments
-
     function generateTicketId() {
       const timestamp = Date.now().toString(36);
       const random = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -70,6 +70,14 @@
           a.download = "valid-ids.json";
           a.click();
         });
+    }
+
+    function downloadTicket() {
+      const canvas = document.getElementById("qrCanvas");
+      const link = document.createElement("a");
+      link.download = "FTSC_Ticket.png";
+      link.href = canvas.toDataURL("image/png");
+      link.click();
     }
 
     paypal.Buttons({
