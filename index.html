@@ -5,13 +5,34 @@
   <title>FTSC Ticket Checkout</title>
   <style>
     body { font-family: 'Segoe UI', sans-serif; background: #f4f4f4; padding: 40px; }
-    .ticket-form, #ticket {
+    .ticket-form {
       max-width: 500px; margin: auto; background: #fff; padding: 30px;
       border-radius: 10px; box-shadow: 0 0 12px rgba(0,0,0,0.1);
     }
-    #ticket { display: none; text-align: center; margin-top: 30px; }
-    #ticket canvas { margin-top: 10px; }
-    button { margin-top: 10px; padding: 10px 20px; font-size: 16px; cursor: pointer; }
+    .ticket-container {
+      position: relative;
+      width: 800px; /* adjust to match your ticket image width */
+      margin: 30px auto;
+      display: none;
+    }
+    .ticket-template {
+      width: 100%;
+      display: block;
+    }
+    #qrCanvas {
+      position: absolute;
+      top: 100px;   /* adjust until QR sits in blank space */
+      right: 60px;  /* adjust until QR sits in blank space */
+      background: #fff;
+      padding: 5px;
+      border-radius: 6px;
+    }
+    #ticketId {
+      text-align: center;
+      margin-top: 20px;
+      font-weight: bold;
+    }
+    button { margin-top: 10px; padding: 10px 20px; cursor: pointer; }
   </style>
 </head>
 <body>
@@ -26,18 +47,24 @@
     <input type="number" id="quantity" value="1" min="1" max="10" />
     <div id="paypal-button-container" style="margin-top: 20px;"></div>
     <p style="font-size: 14px; color: #555;">💳 Payments are securely processed in USD through PayPal.</p>
+
+    <!-- Test button for dev mode -->
+    <button onclick="generateTestTicket()">🧪 Generate Test Ticket (No Payment)</button>
   </div>
 
-  <div id="ticket">
-    <h3>🎟️ Your Ticket</h3>
-    <p id="ticketId"></p>
-    <canvas id="qrCanvas"></canvas>
-    <p style="color: #555;">📸 Tip: Screenshot this ticket or download it below to keep it safe.</p>
-    <button onclick="downloadTicket()">Download Ticket</button>
+  <div class="ticket-container" id="ticket">
+    <!-- Ticket background -->
+    <img src="assets/ticket-template.png" alt="Ticket Template" class="ticket-template">
+    <!-- QR code overlay -->
+    <canvas id="qrCanvas" width="150" height="150"></canvas>
   </div>
+
+  <p id="ticketId"></p>
+  <button onclick="downloadTicket()" style="display:none;" id="downloadBtn">Download Ticket</button>
 
   <script src="https://www.paypal.com/sdk/js?client-id=ASfSCzK1g0fAh0jd1jN8pmcBset8M3FKNQJ6MAKO2wa_fS9ohSkxRJK-pEWNYT-JSgOco9FK1x6hiIR8&currency=USD"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script>
     function generateTicketId() {
       const timestamp = Date.now().toString(36);
@@ -46,40 +73,42 @@
     }
 
     function updateValidIds(newId) {
-      const filePath = "verify/valid-ids.json";
-      fetch(filePath)
-        .then(res => res.json())
-        .then(data => {
-          if (!data.includes(newId)) {
-            data.push(newId);
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = "valid-ids.json";
-            a.click();
-            URL.revokeObjectURL(url);
-            alert("✅ New valid-ids.json downloaded. Replace the one in your repo and push it.");
-          }
-        })
-        .catch(() => {
-          const blob = new Blob([[newId]], { type: "application/json" });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = "valid-ids.json";
-          a.click();
-        });
+      const blob = new Blob([JSON.stringify([newId], null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "valid-ids.json";
+      a.click();
+      URL.revokeObjectURL(url);
+      alert("✅ New valid-ids.json downloaded. Replace the one in your repo and push it.");
+    }
+
+    function generateTestTicket() {
+      const ticketId = generateTicketId();
+      const verifyUrl = "https://studentevents-pixel.github.io/ftsc-events/verify/?id=" + ticketId;
+
+      document.getElementById("ticketId").textContent = "Ticket ID: " + ticketId;
+      document.getElementById("ticket").style.display = "block";
+      document.getElementById("downloadBtn").style.display = "inline-block";
+
+      QRCode.toCanvas(document.getElementById("qrCanvas"), verifyUrl, function (error) {
+        if (error) console.error(error);
+      });
+
+      updateValidIds(ticketId);
     }
 
     function downloadTicket() {
-      const canvas = document.getElementById("qrCanvas");
-      const link = document.createElement("a");
-      link.download = "FTSC_Ticket.png";
-      link.href = canvas.toDataURL("image/png");
-      link.click();
+      const ticket = document.querySelector(".ticket-container");
+      html2canvas(ticket).then(canvas => {
+        const link = document.createElement("a");
+        link.download = "FTSC_Ticket.png";
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+      });
     }
 
+    // PayPal integration (optional, keep for real purchases)
     paypal.Buttons({
       createOrder: (data, actions) => {
         const unitPriceUSD = parseFloat(document.getElementById("ageGroup").value);
@@ -95,17 +124,7 @@
       },
       onApprove: (data, actions) => {
         return actions.order.capture().then(details => {
-          const ticketId = generateTicketId();
-          const verifyUrl = "https://studentevents-pixel.github.io/ftsc-events/verify/?id=" + ticketId;
-
-          document.getElementById("ticketId").textContent = "Ticket ID: " + ticketId;
-          document.getElementById("ticket").style.display = "block";
-
-          QRCode.toCanvas(document.getElementById("qrCanvas"), verifyUrl, function (error) {
-            if (error) console.error(error);
-          });
-
-          updateValidIds(ticketId);
+          generateTestTicket(); // reuse same flow after payment
         });
       }
     }).render("#paypal-button-container");
