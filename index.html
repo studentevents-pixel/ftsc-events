@@ -64,7 +64,6 @@
       border: 1px solid #ccc;
     }
 
-    /* Mobile adjustments */
     @media (max-width: 768px) {
       body { padding: 10px; }
       .ticket-form { padding: 15px; }
@@ -114,6 +113,7 @@
     <input type="number" id="quantity" value="1" min="1" max="10" />
 
     <div id="paypal-button-container" style="margin-top: 20px;"></div>
+    <button onclick="generateTestTicket()">Generate Test Ticket (No Payment)</button>
     <p style="font-size: 14px; color: #555;">💳 Payments are securely processed in USD through PayPal.</p>
   </div>
 
@@ -155,14 +155,7 @@
       .catch(err => console.error("Backend error:", err));
     }
 
-    function generateTicket() {
-      const holderName = document.getElementById("holderName").value.trim();
-      if (!holderName) {
-        alert("Please enter the ticket holder name.");
-        return;
-      }
-
-      const ticketId = generateTicketId(holderName);
+    function generateTicket(ticketId) {
       const verifyUrl = "https://ticket-backend-pzfv.onrender.com/verify/" + ticketId;
 
       document.getElementById("ticketId").textContent = "Ticket ID: " + ticketId;
@@ -174,6 +167,17 @@
       });
 
       updateValidIds(ticketId);
+    }
+
+    function generateTestTicket() {
+      const holderName = document.getElementById("holderName").value.trim();
+      if (!holderName) {
+        alert("Please enter the ticket holder name.");
+        return;
+      }
+
+      const ticketId = generateTicketId(holderName);
+      generateTicket(ticketId);
     }
 
     function downloadTicket() {
@@ -207,7 +211,9 @@
         },
         onApprove: (data, actions) => {
           return actions.order.capture().then(details => {
-            generateTicket();
+            const holderName = document.getElementById("holderName").value.trim();
+            const ticketId = generateTicketId(holderName);
+            generateTicket(ticketId);
           });
         }
       }).render("#paypal-button-container");
