@@ -23,7 +23,7 @@
       margin: 0 auto;
     }
     #result {
-      font-size: 2.5em;
+      font-size: 1.4em;
       font-weight: bold;
       margin-top: 30px;
       word-wrap: break-word;
@@ -38,7 +38,7 @@
   <div id="result">Waiting for scan...</div>
 
   <script>
-    function onScanSuccess(decodedText, decodedResult) {
+    function onScanSuccess(decodedText) {
       console.log("Scanned QR text:", decodedText);
 
       fetch(`https://ticket-backend-pzfv.onrender.com/verify/${encodeURIComponent(decodedText)}`)
@@ -49,9 +49,14 @@
         .then(data => {
           console.log("Server response:", data);
           const resultDiv = document.getElementById("result");
+
           if (data.valid) {
-            resultDiv.textContent = "VALID ✅";
-            resultDiv.className = "valid";
+            resultDiv.innerHTML = `
+              <span class="valid">VALID ✅</span><br>
+              Name: ${data.name}<br>
+              Age Category: ${data.ageCategory}<br>
+              Event Date: ${data.date}
+            `;
           } else {
             resultDiv.textContent = "INVALID ❌";
             resultDiv.className = "invalid";
