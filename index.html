@@ -21,8 +21,9 @@
     }
     #qrCanvas {
       position: absolute;
-      top: 100px;   /* adjust until QR sits in blank space */
-      right: 60px;  /* adjust until QR sits in blank space */
+      top: 50%;       /* roughly halfway down */
+      left: 75%;      /* adjust horizontally until it sits in blank space */
+      transform: translate(-50%, -50%); /* center the QR code at that point */
       background: #fff;
       padding: 5px;
       border-radius: 6px;
@@ -62,9 +63,13 @@
   <p id="ticketId"></p>
   <button onclick="downloadTicket()" style="display:none;" id="downloadBtn">Download Ticket</button>
 
+  <!-- PayPal SDK -->
   <script src="https://www.paypal.com/sdk/js?client-id=ASfSCzK1g0fAh0jd1jN8pmcBset8M3FKNQJ6MAKO2wa_fS9ohSkxRJK-pEWNYT-JSgOco9FK1x6hiIR8&currency=USD"></script>
+  <!-- QR code library -->
   <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  <!-- html2canvas for screenshotting -->
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
   <script>
     function generateTicketId() {
       const timestamp = Date.now().toString(36);
@@ -73,14 +78,34 @@
     }
 
     function updateValidIds(newId) {
-      const blob = new Blob([JSON.stringify([newId], null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "valid-ids.json";
-      a.click();
-      URL.revokeObjectURL(url);
-      alert("✅ New valid-ids.json downloaded. Replace the one in your repo and push it.");
+      const filePath = "verify/valid-ids.json";
+
+      fetch(filePath)
+        .then(res => res.json())
+        .then(data => {
+          if (!data.includes(newId)) {
+            data.push(newId);
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "valid-ids.json";
+            a.click();
+            URL.revokeObjectURL(url);
+            alert("✅ Updated valid-ids.json downloaded. Replace the one in your repo and push it.");
+          }
+        })
+        .catch(error => {
+          console.error("Could not fetch existing valid-ids.json:", error);
+          const blob = new Blob([JSON.stringify([newId], null, 2)], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "valid-ids.json";
+          a.click();
+          URL.revokeObjectURL(url);
+          alert("⚠️ No existing file found. Created a new valid-ids.json.");
+        });
     }
 
     function generateTestTicket() {
@@ -108,7 +133,7 @@
       });
     }
 
-    // PayPal integration (optional, keep for real purchases)
+    // PayPal integration
     paypal.Buttons({
       createOrder: (data, actions) => {
         const unitPriceUSD = parseFloat(document.getElementById("ageGroup").value);
