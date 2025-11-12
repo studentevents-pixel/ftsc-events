@@ -4,14 +4,22 @@
   <meta charset="UTF-8" />
   <title>FTSC Ticket Checkout</title>
   <style>
-    body { font-family: 'Segoe UI', sans-serif; background: #f4f4f4; padding: 40px; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f4f4f4;
+      padding: 40px;
+    }
     .ticket-form {
-      max-width: 500px; margin: auto; background: #fff; padding: 30px;
-      border-radius: 10px; box-shadow: 0 0 12px rgba(0,0,0,0.1);
+      max-width: 500px;
+      margin: auto;
+      background: #fff;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 0 12px rgba(0,0,0,0.1);
     }
     .ticket-container {
       position: relative;
-      width: 800px; /* adjust to match your ticket image width */
+      width: 800px; /* match your ticket image width */
       margin: 30px auto;
       display: none;
     }
@@ -21,19 +29,23 @@
     }
     #qrCanvas {
       position: absolute;
-      top: 50%;       /* roughly halfway down */
-      left: 75%;      /* adjust horizontally until it sits in blank space */
-      transform: translate(-50%, -50%); /* center the QR code at that point */
+      top: 35px;    /* moved further up */
+      left:575px;  /* moved further right */
       background: #fff;
       padding: 5px;
       border-radius: 6px;
+      box-shadow: 0 0 5px rgba(0,0,0,0.2); /* optional for clarity */
     }
     #ticketId {
       text-align: center;
       margin-top: 20px;
       font-weight: bold;
     }
-    button { margin-top: 10px; padding: 10px 20px; cursor: pointer; }
+    button {
+      margin-top: 10px;
+      padding: 10px 20px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
