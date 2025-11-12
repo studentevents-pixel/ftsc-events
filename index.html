@@ -37,8 +37,8 @@
     }
     #qrCanvas {
       position: absolute;
-      top: 35px;
-      left: 575px;
+      top: 37px;   /* adjusted placement */
+      left: 585px; /* adjusted placement */
       background: #fff;
       padding: 5px;
       border-radius: 6px;
@@ -96,8 +96,6 @@
 
     <div id="paypal-button-container" style="margin-top: 20px;"></div>
     <p style="font-size: 14px; color: #555;">💳 Payments are securely processed in USD through PayPal.</p>
-
-    <button onclick="generateTestTicket()">🧪 Generate Test Ticket (No Payment)</button>
   </div>
 
   <div class="ticket-container" id="ticket">
@@ -108,49 +106,37 @@
   <p id="ticketId"></p>
   <button onclick="downloadTicket()" style="display:none;" id="downloadBtn">Download Ticket</button>
 
+  <!-- PayPal SDK -->
   <script src="https://www.paypal.com/sdk/js?client-id=ASfSCzK1g0fAh0jd1jN8pmcBset8M3FKNQJ6MAKO2wa_fS9ohSkxRJK-pEWNYT-JSgOco9FK1x6hiIR8&currency=USD&components=buttons,hosted-fields"></script>
+  <!-- QR code library -->
   <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  <!-- html2canvas for screenshotting -->
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
   <script>
     function generateTicketId(holderName) {
       const timestamp = Date.now().toString(36);
       const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-      const safeName = holderName.trim().replace(/\s+/g, "_"); // keep full name, replace spaces with underscores
+      const safeName = holderName.trim().replace(/\s+/g, "_");
       return "FTSC-" + safeName + "-" + timestamp + "-" + random;
     }
 
     function updateValidIds(newId) {
-      const filePath = "verify/valid-ids.json";
-      fetch(filePath)
-        .then(res => res.json())
-        .then(data => {
-          if (!data.includes(newId)) {
-            data.push(newId);
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = "valid-ids.json";
-            a.click();
-            URL.revokeObjectURL(url);
-            alert("✅ Updated valid-ids.json downloaded. Replace the one in your repo and push it.");
-          }
-        })
-        .catch(error => {
-          console.error("Could not fetch existing valid-ids.json:", error);
-          const blob = new Blob([JSON.stringify([newId], null, 2)], { type: "application/json" });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = "valid-ids.json";
-          a.click();
-          URL.revokeObjectURL(url);
-          alert("⚠️ No existing file found. Created a new valid-ids.json.");
-        });
+      fetch("http://localhost:3000/tickets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticketId: newId })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          console.log("✅ Ticket stored in backend");
+        }
+      })
+      .catch(err => console.error("Backend error:", err));
     }
 
-    function generateTestTicket() {
+    function generateTicket() {
       const holderName = document.getElementById("holderName").value.trim();
       if (!holderName) {
         alert("Please enter the ticket holder name.");
@@ -158,7 +144,7 @@
       }
 
       const ticketId = generateTicketId(holderName);
-      const verifyUrl = "https://studentevents-pixel.github.io/ftsc-events/verify/?id=" + ticketId;
+      const verifyUrl = "http://localhost:3000/verify/" + ticketId;
 
       document.getElementById("ticketId").textContent = "Ticket ID: " + ticketId;
       document.getElementById("ticket").style.display = "block";
@@ -202,7 +188,7 @@
         },
         onApprove: (data, actions) => {
           return actions.order.capture().then(details => {
-            generateTestTicket();
+            generateTicket();
           });
         }
       }).render("#paypal-button-container");
