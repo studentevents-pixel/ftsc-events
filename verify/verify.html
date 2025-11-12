@@ -4,25 +4,29 @@
   <meta charset="UTF-8">
   <title>Ticket Verification</title>
   <script src="https://unpkg.com/html5-qrcode"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body {
       font-family: Arial, sans-serif;
       text-align: center;
       background-color: #f0f0f0;
       margin: 0;
-      padding: 20px;
+      padding: 10px;
     }
     h1 {
+      font-size: 1.8em;
       margin-bottom: 10px;
     }
     #reader {
-      width: 300px;
+      width: 90vw;
+      max-width: 500px;
       margin: 0 auto;
     }
     #result {
-      font-size: 3em;
+      font-size: 2.5em;
       font-weight: bold;
       margin-top: 30px;
+      word-wrap: break-word;
     }
     .valid {
       color: green;
@@ -63,7 +67,7 @@
         const html5QrCode = new Html5Qrcode("reader");
         html5QrCode.start(
           { facingMode: "environment" },
-          { fps: 10, qrbox: 250 },
+          { fps: 10, qrbox: { width: 250, height: 250 } },
           onScanSuccess
         );
       } else {
