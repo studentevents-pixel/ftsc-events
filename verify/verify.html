@@ -41,7 +41,13 @@
     function onScanSuccess(decodedText) {
       console.log("Scanned QR text:", decodedText);
 
-      fetch(`https://ticket-backend-pzfv.onrender.com/verify/${encodeURIComponent(decodedText)}`)
+      // ✅ Normalize: if QR contains full verify URL, extract only the ticketId
+      let ticketId = decodedText;
+      if (ticketId.includes("/verify/")) {
+        ticketId = ticketId.split("/verify/").pop();
+      }
+
+      fetch(`https://ticket-backend-pzfv.onrender.com/verify/${encodeURIComponent(ticketId)}`)
         .then(res => {
           if (!res.ok) throw new Error("Network response was not ok");
           return res.json();
