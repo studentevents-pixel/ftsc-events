@@ -1,1 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Find My Ticket</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; background: #f4f4f4; }
+    .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    input, button { width: 100%; padding: 10px; margin-top: 10px; border-radius: 5px; border: 1px solid #ccc; }
+    .ticket { margin-top: 20px; padding: 15px; background: #fff; border: 1px solid #ccc; border-radius: 8px; text-align: center; }
+    canvas { margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Find Your Ticket</h2>
+    <input type="text" id="nameInput" placeholder="Enter your full name" />
+    <button onclick="findTicket()">Search</button>
+    <div id="results"></div>
+  </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  <script>
+    function findTicket() {
+      const name = document.getElementById("nameInput").value.trim();
+      if (!name) return alert("Please enter your name.");
+
+      fetch(`https://ticket-backend-pzfv.onrender.com/find/${encodeURIComponent(name)}`)
+        .then(res => res.json())
+        .then(data => {
+          const results = document.getElementById("results");
+          results.innerHTML = "";
+
+          if (data.length === 0) {
+            results.textContent = "No tickets found for that name.";
+            return;
+          }
+
+          data.forEach(entry => {
+            const div = document.createElement("div");
+            div.className = "ticket";
+            div.innerHTML = `<strong>Ticket ID:</strong> ${entry.ticketId}<br><canvas></canvas>`;
+            results.appendChild(div);
+
+            const canvas = div.querySelector("canvas");
+            const verifyUrl = `https://ticket-backend-pzfv.onrender.com/verify/${entry.ticketId}`;
+            QRCode.toCanvas(canvas, verifyUrl, function (error) {
+              if (error) console.error(error);
+            });
+          });
+        })
+        .catch(err => {
+          console.error("Fetch error:", err);
+          document.getElementById("results").textContent = "Error contacting server.";
+        });
+    }
+  </script>
+</body>
+</html>
