@@ -3,18 +3,26 @@
 <head>
   <meta charset="UTF-8">
   <title>Ticket Verification</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
       text-align: center;
       background-color: #f0f0f0;
       margin: 0;
-      padding: 50px;
+      padding: 20px;
+    }
+    h1 {
+      margin-bottom: 10px;
+    }
+    #reader {
+      width: 300px;
+      margin: 0 auto;
     }
     #result {
-      font-size: 4em;
+      font-size: 3em;
       font-weight: bold;
-      margin-top: 50px;
+      margin-top: 30px;
     }
     .valid {
       color: green;
@@ -22,52 +30,48 @@
     .invalid {
       color: red;
     }
-    input {
-      font-size: 1.2em;
-      padding: 10px;
-      width: 300px;
-    }
-    button {
-      font-size: 1.2em;
-      padding: 10px 20px;
-      margin-left: 10px;
-    }
   </style>
 </head>
 <body>
-  <h1>Ticket Verification</h1>
-  <p>Enter or scan a ticket ID:</p>
-  <input type="text" id="ticketId" placeholder="Ticket ID">
-  <button onclick="verifyTicket()">Verify</button>
-
-  <div id="result"></div>
+  <h1>Scan Ticket QR Code</h1>
+  <div id="reader"></div>
+  <div id="result">Waiting for scan...</div>
 
   <script>
-    async function verifyTicket() {
-      const ticketId = document.getElementById("ticketId").value.trim();
-      if (!ticketId) {
-        document.getElementById("result").textContent = "Please enter a ticket ID";
-        document.getElementById("result").className = "";
-        return;
-      }
-
-      try {
-        const response = await fetch(`https://ticket-backend-pzfv.onrender.com/verify/${ticketId}`);
-        const data = await response.json();
-
-        const resultDiv = document.getElementById("result");
-        if (data.valid) {
-          resultDiv.textContent = "VALID ✅";
-          resultDiv.className = "valid";
-        } else {
-          resultDiv.textContent = "INVALID ❌";
+    function onScanSuccess(decodedText, decodedResult) {
+      fetch(`https://ticket-backend-pzfv.onrender.com/verify/${decodedText}`)
+        .then(res => res.json())
+        .then(data => {
+          const resultDiv = document.getElementById("result");
+          if (data.valid) {
+            resultDiv.textContent = "VALID ✅";
+            resultDiv.className = "valid";
+          } else {
+            resultDiv.textContent = "INVALID ❌";
+            resultDiv.className = "invalid";
+          }
+        })
+        .catch(() => {
+          const resultDiv = document.getElementById("result");
+          resultDiv.textContent = "Error contacting server";
           resultDiv.className = "invalid";
-        }
-      } catch (err) {
-        document.getElementById("result").textContent = "Error contacting server";
-        document.getElementById("result").className = "invalid";
-      }
+        });
     }
+
+    Html5Qrcode.getCameras().then(cameras => {
+      if (cameras && cameras.length) {
+        const html5QrCode = new Html5Qrcode("reader");
+        html5QrCode.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: 250 },
+          onScanSuccess
+        );
+      } else {
+        document.getElementById("result").textContent = "No camera found";
+      }
+    }).catch(err => {
+      document.getElementById("result").textContent = "Camera access denied";
+    });
   </script>
 </body>
 </html>
