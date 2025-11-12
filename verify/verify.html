@@ -1,1 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Ticket Verification</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f4f4f4;
+      text-align: center;
+      padding: 50px;
+    }
+    .status {
+      font-size: 24px;
+      font-weight: bold;
+      margin-top: 20px;
+    }
+    .valid { color: green; }
+    .invalid { color: red; }
+  </style>
+</head>
+<body>
+  <h2>🎟️ Ticket Verification</h2>
+  <p id="status">Checking ticket...</p>
 
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const ticketId = params.get("id");
+
+    fetch("http://localhost:3000/verify/" + ticketId)
+      .then(res => res.json())
+      .then(data => {
+        const statusEl = document.getElementById("status");
+        if (data.valid) {
+          statusEl.textContent = "✅ Valid Ticket: " + ticketId;
+          statusEl.className = "status valid";
+        } else {
+          statusEl.textContent = "❌ Invalid Ticket: " + ticketId;
+          statusEl.className = "status invalid";
+        }
+      })
+      .catch(err => {
+        document.getElementById("status").textContent = "⚠️ Error checking ticket.";
+        console.error(err);
+      });
+  </script>
+</body>
+</html>
