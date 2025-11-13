@@ -26,17 +26,24 @@
       margin-bottom: 20px;
     }
     .ticket-container {
-      position: relative;
       width: 100%;
       max-width: 800px;
       margin: 30px auto;
       display: none;
     }
-    .ticket-template {
+    .ticket-block {
+      position: relative;
+      margin: 20px 0;
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 10px;
+    }
+    .ticket-block img {
       width: 100%;
       display: block;
     }
-    #qrCanvas {
+    .ticket-block canvas {
       position: absolute;
       top: 37px;
       left: 585px;
@@ -44,11 +51,6 @@
       padding: 5px;
       border-radius: 6px;
       box-shadow: 0 0 5px rgba(0,0,0,0.2);
-    }
-    #ticketId {
-      text-align: center;
-      margin-top: 20px;
-      font-weight: bold;
     }
     button {
       margin-top: 10px;
@@ -63,32 +65,17 @@
       border-radius: 4px;
       border: 1px solid #ccc;
     }
-
-    @media (max-width: 768px) {
-      body { padding: 10px; }
-      .ticket-form { padding: 15px; }
-      #qrCanvas {
-        top: 20px;
-        left: 60%;
-        width: 100px;
-        height: 100px;
-      }
+    .holder-card {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 12px;
+      margin: 10px 0;
+      background: #fafafa;
     }
-
-    @media (max-width: 480px) {
-      #qrCanvas {
-        top: 15px;
-        left: 55%;
-        width: 90px;
-        height: 90px;
-      }
-      .ticket-form h2 {
-        font-size: 1.2em;
-      }
-      button {
-        font-size: 0.9em;
-        padding: 8px 16px;
-      }
+    .summary {
+      margin-top: 15px;
+      font-weight: 600;
+      color: #333;
     }
   </style>
 </head>
@@ -101,38 +88,27 @@
       Date: Saturday 13th December, 2025
     </p>
 
-    <label>Ticket Holder Name:</label>
-    <input type="text" id="holderName" placeholder="Enter your full name" required />
-
-    <label>Select Ticket Type:</label>
-    <select id="ticketType">
-      <option value="100">Under 18 – $100 TTD (~$14.65 USD)</option>
-      <option value="150">18 and Older – $150 TTD (~$21.98 USD)</option>
-    </select>
-
     <label>Quantity:</label>
     <input type="number" id="quantity" value="1" min="1" max="10" />
+
+    <div id="ticketHolders"></div>
+
+    <div class="summary" id="orderSummary">Total: $0.00 USD</div>
 
     <div id="paypal-button-container" style="margin-top: 20px;"></div>
     <p style="font-size: 14px; color: #555;">💳 Payments are securely processed in USD through PayPal.</p>
   </div>
 
-  <div class="ticket-container" id="ticket">
-    <img src="assets/ticket-template.png" alt="Ticket Template" class="ticket-template">
-    <canvas id="qrCanvas" width="150" height="150"></canvas>
-  </div>
-
-  <p id="ticketId"></p>
-  <button onclick="downloadTicket()" style="display:none;" id="downloadBtn">Download Ticket</button>
+  <div class="ticket-container" id="ticket"></div>
 
   <!-- PayPal SDK -->
   <script src="https://www.paypal.com/sdk/js?client-id=ASfSCzK1g0fAh0jd1jN8pmcBset8M3FKNQJ6MAKO2wa_fS9ohSkxRJK-pEWNYT-JSgOco9FK1x6hiIR8&currency=USD&components=buttons,hosted-fields"></script>
   <!-- QR code library -->
   <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
-  <!-- html2canvas for screenshotting -->
-  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
   <script>
+    const TTD_TO_USD = 0.1465;
+
     function generateTicketId(holderName) {
       const timestamp = Date.now().toString(36);
       const random = Math.random().toString(36).substring(2, 6).toUpperCase();
@@ -151,36 +127,57 @@
         })
       })
       .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          console.log("✅ Ticket stored in backend");
-        }
-      })
+      .then(() => console.log("✅ Stored:", newId))
       .catch(err => console.error("Backend error:", err));
     }
 
-    function generateTicket(ticketId, holderName, amount) {
-      const verifyUrl = "https://ticket-backend-pzfv.onrender.com/verify/" + ticketId;
-
-      document.getElementById("ticketId").textContent = "Ticket ID: " + ticketId;
-      document.getElementById("ticket").style.display = "block";
-      document.getElementById("downloadBtn").style.display = "inline-block";
-
-      QRCode.toCanvas(document.getElementById("qrCanvas"), verifyUrl, function (error) {
-        if (error) console.error(error);
-      });
-
-      updateValidIds(ticketId, holderName, amount);
+    function renderTicketHolders() {
+      const qty = parseInt(document.getElementById("quantity").value);
+      const container = document.getElementById("ticketHolders");
+      container.innerHTML = "";
+      for (let i = 1; i <= qty; i++) {
+        container.innerHTML += `
+          <div class="holder-card">
+            <h3>Ticket ${i}</h3>
+            <label>Name:</label>
+            <input type="text" id="holderName${i}" placeholder="Enter full name" required />
+            <label>Select Ticket Type:</label>
+            <select id="ticketType${i}">
+              <option value="100">Under 18 – $100 TTD (~$${(100 * TTD_TO_USD).toFixed(2)} USD)</option>
+              <option value="150">18 and Older – $150 TTD (~$${(150 * TTD_TO_USD).toFixed(2)} USD)</option>
+            </select>
+          </div>
+        `;
+      }
+      updateOrderSummary();
+      attachTypeChangeListeners();
+      renderPayPalButtons();
     }
 
-    function downloadTicket() {
-      const ticket = document.querySelector(".ticket-container");
-      html2canvas(ticket).then(canvas => {
-        const link = document.createElement("a");
-        link.download = "FTSC_Ticket.png";
-        link.href = canvas.toDataURL("image/png");
-        link.click();
-      });
+    function updateOrderSummary() {
+      let totalUSD = 0;
+      const qty = parseInt(document.getElementById("quantity").value);
+      for (let i = 1; i <= qty; i++) {
+        const typeEl = document.getElementById("ticketType" + i);
+        if (typeEl) {
+          const amountTTD = parseInt(typeEl.value);
+          totalUSD += amountTTD * TTD_TO_USD;
+        }
+      }
+      document.getElementById("orderSummary").textContent = "Total: $" + totalUSD.toFixed(2) + " USD";
+    }
+
+    function attachTypeChangeListeners() {
+      const qty = parseInt(document.getElementById("quantity").value);
+      for (let i = 1; i <= qty; i++) {
+        const typeEl = document.getElementById("ticketType" + i);
+        if (typeEl) {
+          typeEl.addEventListener("change", () => {
+            updateOrderSummary();
+            renderPayPalButtons();
+          });
+        }
+      }
     }
 
     function renderPayPalButtons() {
@@ -189,33 +186,64 @@
 
       paypal.Buttons({
         createOrder: (data, actions) => {
-          const unitPriceUSD = parseFloat(document.getElementById("ticketType").value) * 0.1465; // convert TTD to USD approx
+          let totalUSD = 0;
           const qty = parseInt(document.getElementById("quantity").value);
-          const total = (unitPriceUSD * qty).toFixed(2);
-
+          for (let i = 1; i <= qty; i++) {
+            const amountTTD = parseInt(document.getElementById("ticketType" + i).value);
+            totalUSD += amountTTD * TTD_TO_USD;
+          }
           return actions.order.create({
             purchase_units: [{
               amount: {
                 currency_code: "USD",
-                value: total
+                value: totalUSD.toFixed(2)
               }
             }]
           });
         },
         onApprove: (data, actions) => {
-          return actions.order.capture().then(details => {
-            const holderName = document.getElementById("holderName").value.trim();
-            const ticketId = generateTicketId(holderName);
-            const amountTTD = parseInt(document.getElementById("ticketType").value);
-            generateTicket(ticketId, holderName, amountTTD);
+          return actions.order.capture().then(() => {
+            const qty = parseInt(document.getElementById("quantity").value);
+            const ticketsContainer = document.getElementById("ticket");
+            ticketsContainer.innerHTML = "";
+            ticketsContainer.style.display = "block";
+
+            for (let i = 1; i <= qty; i++) {
+              const holderName = document.getElementById("holderName" + i).value.trim();
+              const amountTTD = parseInt(document.getElementById("ticketType" + i).value);
+              if (!holderName) { alert("Please enter a name for Ticket " + i); return; }
+
+              const ticketId = generateTicketId(holderName);
+              updateValidIds(ticketId, holderName, amountTTD);
+
+              const ticketBlock = document.createElement("div");
+              ticketBlock.className = "ticket-block";
+              ticketBlock.innerHTML = `
+                <img src="assets/ticket-template.png" alt="Ticket Template">
+                <canvas id="qrCanvas${i}" width="150" height="150"></canvas>
+                <p style="text-align:center; font-weight:bold; margin-top:10px;">
+                  Ticket ${i} — ${holderName}<br>ID: ${ticketId}
+                </p>
+              `;
+              ticketsContainer.appendChild(ticketBlock);
+
+              const verifyUrl = "https://ticket-backend-pzfv.onrender.com/verify/" + ticketId;
+              QRCode.toCanvas(ticketBlock.querySelector("#qrCanvas" + i), verifyUrl, (error) => {
+                if (error) console.error(error);
+              });
+            }
           });
         }
       }).render("#paypal-button-container");
     }
 
-    renderPayPalButtons();
-    document.getElementById("ticketType").addEventListener("change", renderPayPalButtons);
-    document.getElementById("quantity").addEventListener("input", renderPayPalButtons);
+    // Init
+    renderTicketHolders();
+
+    // React to quantity changes
+    document.getElementById("quantity").addEventListener("input", () => {
+      renderTicketHolders();
+    });
   </script>
 </body>
 </html>
