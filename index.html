@@ -46,7 +46,7 @@
     .ticket-block canvas {
       position: absolute;
       top: 37px;
-      left: 585px;
+      right: 20px;
       background: #fff;
       padding: 5px;
       border-radius: 6px;
@@ -77,6 +77,10 @@
       font-weight: 600;
       color: #333;
     }
+    .small {
+      font-size: 13px;
+      color: #666;
+    }
   </style>
 </head>
 <body>
@@ -96,28 +100,29 @@
     <div class="summary" id="orderSummary">Total: $0.00 USD</div>
 
     <div id="paypal-button-container" style="margin-top: 20px;"></div>
-    <p style="font-size: 14px; color: #555;">💳 Payments are securely processed in USD through PayPal.</p>
+    <p class="small">💳 Payments are securely processed in USD through PayPal.</p>
   </div>
 
   <div class="ticket-container" id="ticket"></div>
 
-  <!-- PayPal SDK -->
-  <script src="https://www.paypal.com/sdk/js?client-id=ASfSCzK1g0fAh0jd1jN8pmcBset8M3FKNQJ6MAKO2wa_fS9ohSkxRJK-pEWNYT-JSgOco9FK1x6hiIR8&currency=USD&components=buttons,hosted-fields"></script>
+  <!-- PayPal SDK with your Live Client ID -->
+  <script src="https://www.paypal.com/sdk/js?client-id=AU-zcsGpuxbenKJvMVqN7fJ3wB0c8_pBhiTTH2PtvFuRiGZWOJ13GXJvAd256wDK259aIf_mdK9zqOZw&currency=USD&components=buttons,hosted-fields"></script>
   <!-- QR code library -->
   <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
 
   <script>
     const TTD_TO_USD = 0.1465;
+    const BACKEND_BASE = "https://ticket-backend-pzfv.onrender.com";
 
     function generateTicketId(holderName) {
       const timestamp = Date.now().toString(36);
       const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-      const safeName = holderName.trim().replace(/\s+/g, "_");
+      const safeName = holderName.trim().replace(/\s+/g, "_").replace(/[^A-Za-z0-9_-]/g, "");
       return "FTSC-" + safeName + "-" + timestamp + "-" + random;
     }
 
     function updateValidIds(newId, holderName, amount) {
-      fetch("https://ticket-backend-pzfv.onrender.com/tickets", {
+      fetch(BACKEND_BASE + "/tickets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -126,13 +131,16 @@
           amount: amount
         })
       })
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error("Network response was not ok");
+        return res.json();
+      })
       .then(() => console.log("✅ Stored:", newId))
       .catch(err => console.error("Backend error:", err));
     }
 
     function renderTicketHolders() {
-      const qty = parseInt(document.getElementById("quantity").value);
+      const qty = parseInt(document.getElementById("quantity").value) || 1;
       const container = document.getElementById("ticketHolders");
       container.innerHTML = "";
       for (let i = 1; i <= qty; i++) {
@@ -156,11 +164,11 @@
 
     function updateOrderSummary() {
       let totalUSD = 0;
-      const qty = parseInt(document.getElementById("quantity").value);
+      const qty = parseInt(document.getElementById("quantity").value) || 1;
       for (let i = 1; i <= qty; i++) {
         const typeEl = document.getElementById("ticketType" + i);
         if (typeEl) {
-          const amountTTD = parseInt(typeEl.value);
+          const amountTTD = parseInt(typeEl.value) || 0;
           totalUSD += amountTTD * TTD_TO_USD;
         }
       }
@@ -168,7 +176,7 @@
     }
 
     function attachTypeChangeListeners() {
-      const qty = parseInt(document.getElementById("quantity").value);
+      const qty = parseInt(document.getElementById("quantity").value) || 1;
       for (let i = 1; i <= qty; i++) {
         const typeEl = document.getElementById("ticketType" + i);
         if (typeEl) {
@@ -184,34 +192,51 @@
       const container = document.getElementById("paypal-button-container");
       container.innerHTML = "";
 
+      // Ensure PayPal SDK is loaded
+      if (!window.paypal) {
+        container.textContent = "PayPal SDK failed to load. Refresh the page.";
+        return;
+      }
+
       paypal.Buttons({
         createOrder: (data, actions) => {
           let totalUSD = 0;
-          const qty = parseInt(document.getElementById("quantity").value);
+          const qty = parseInt(document.getElementById("quantity").value) || 1;
           for (let i = 1; i <= qty; i++) {
-            const amountTTD = parseInt(document.getElementById("ticketType" + i).value);
+            const amountTTD = parseInt(document.getElementById("ticketType" + i).value) || 0;
             totalUSD += amountTTD * TTD_TO_USD;
           }
+          // Create order with explicit return/cancel URLs to avoid default redirect to homepage
           return actions.order.create({
             purchase_units: [{
               amount: {
                 currency_code: "USD",
                 value: totalUSD.toFixed(2)
               }
-            }]
+            }],
+            application_context: {
+              return_url: "https://studentevents-pixel.github.io/ftsc-events/success.html",
+              cancel_url: "https://studentevents-pixel.github.io/ftsc-events/cancel.html"
+            }
           });
         },
         onApprove: (data, actions) => {
           return actions.order.capture().then(() => {
-            const qty = parseInt(document.getElementById("quantity").value);
+            // After capture, generate tickets client-side and store them in backend
+            const qty = parseInt(document.getElementById("quantity").value) || 1;
             const ticketsContainer = document.getElementById("ticket");
             ticketsContainer.innerHTML = "";
             ticketsContainer.style.display = "block";
 
             for (let i = 1; i <= qty; i++) {
-              const holderName = document.getElementById("holderName" + i).value.trim();
-              const amountTTD = parseInt(document.getElementById("ticketType" + i).value);
-              if (!holderName) { alert("Please enter a name for Ticket " + i); return; }
+              const holderNameEl = document.getElementById("holderName" + i);
+              const holderName = holderNameEl ? holderNameEl.value.trim() : "";
+              const amountTTD = parseInt(document.getElementById("ticketType" + i).value) || 0;
+              if (!holderName) {
+                alert("Please enter a name for Ticket " + i);
+                ticketsContainer.style.display = "none";
+                return;
+              }
 
               const ticketId = generateTicketId(holderName);
               updateValidIds(ticketId, holderName, amountTTD);
@@ -227,17 +252,32 @@
               `;
               ticketsContainer.appendChild(ticketBlock);
 
-              const verifyUrl = "https://ticket-backend-pzfv.onrender.com/verify/" + ticketId;
-              QRCode.toCanvas(ticketBlock.querySelector("#qrCanvas" + i), verifyUrl, (error) => {
-                if (error) console.error(error);
-              });
+              const verifyUrl = BACKEND_BASE + "/verify/" + encodeURIComponent(ticketId);
+              const canvasEl = ticketBlock.querySelector("#qrCanvas" + i);
+              if (canvasEl && window.QRCode) {
+                QRCode.toCanvas(canvasEl, verifyUrl, { width: 150 }, (error) => {
+                  if (error) console.error("QR error:", error);
+                });
+              } else {
+                console.warn("QRCode library not available or canvas missing");
+              }
             }
+          }).catch(err => {
+            console.error("Capture error:", err);
+            alert("Payment captured but an error occurred while finalizing tickets. Check console for details.");
           });
+        },
+        onCancel: (data) => {
+          alert("Payment cancelled.");
+        },
+        onError: (err) => {
+          console.error("PayPal Buttons error:", err);
+          alert("An error occurred with PayPal. Check console for details.");
         }
       }).render("#paypal-button-container");
     }
 
-    // Init
+    // Initialize page
     renderTicketHolders();
 
     // React to quantity changes
