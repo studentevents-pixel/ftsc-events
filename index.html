@@ -1,246 +1,235 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="utf-8" />
   <title>FTSC Ticket Checkout</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
     body {
-      font-family: 'Segoe UI', sans-serif;
+      font-family: 'Segoe UI', system-ui, -apple-system, "Helvetica Neue", Arial;
       background: #f4f4f4;
       padding: 20px;
       margin: 0;
+      color: #222;
     }
     .ticket-form {
-      max-width: 600px;
-      margin: auto;
+      max-width: 720px;
+      margin: 28px auto;
       background: #fff;
-      padding: 20px;
+      padding: 22px;
       border-radius: 10px;
-      box-shadow: 0 0 12px rgba(0,0,0,0.1);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.06);
     }
-    .ticket-form h2 { margin-bottom: 10px; }
-    .event-details {
-      font-size: 14px;
-      color: #333;
-      margin-bottom: 20px;
+    h2 { margin: 0 0 8px 0; font-size: 20px; }
+    .event-details { font-size: 14px; color: #444; margin-bottom: 16px; }
+    label { display:block; margin-top:12px; font-weight:600; }
+    input[type="number"], input[type="text"], select {
+      width:100%; padding:10px; margin-top:6px; border-radius:6px; border:1px solid #d0d0d0;
+      box-sizing: border-box;
     }
-    .ticket-container {
-      width: 100%;
-      max-width: 800px;
-      margin: 30px auto;
-      display: none;
-    }
-    .ticket-block {
-      position: relative;
-      margin: 20px 0;
-      background: #fff;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      padding: 10px;
-    }
-    .ticket-block img {
-      width: 100%;
-      display: block;
-    }
-    .ticket-block canvas {
-      position: absolute;
-      top: 37px;
-      right: 20px;
-      background: #fff;
-      padding: 5px;
-      border-radius: 6px;
-      box-shadow: 0 0 5px rgba(0,0,0,0.2);
-    }
-    button {
-      margin-top: 10px;
-      padding: 10px 20px;
-      cursor: pointer;
-    }
-    label { display: block; margin-top: 10px; }
-    select, input {
-      width: 100%;
-      padding: 8px;
-      margin-top: 5px;
-      border-radius: 4px;
-      border: 1px solid #ccc;
-    }
-    .holder-card {
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      padding: 12px;
-      margin: 10px 0;
-      background: #fafafa;
-    }
-    .summary {
-      margin-top: 15px;
-      font-weight: 600;
-      color: #333;
-    }
-    .small {
-      font-size: 13px;
-      color: #666;
-    }
+    .holder-card { background:#fbfbfb; border:1px solid #eee; padding:12px; border-radius:8px; margin-top:12px; }
+    .summary { margin-top:14px; font-weight:700; color:#111; }
+    #paypal-button-container { margin-top:18px; }
+    .ticket-container { max-width:800px; margin:20px auto; display:none; }
+    .ticket-block { position:relative; margin:18px 0; background:#fff; border:1px solid #e6e6e6; border-radius:8px; padding:12px; }
+    .ticket-block img { width:100%; display:block; border-radius:6px; }
+    .ticket-block canvas { position:absolute; top:12px; right:12px; background:#fff; padding:6px; border-radius:6px; box-shadow:0 2px 8px rgba(0,0,0,0.08); }
+    .small { font-size:13px; color:#666; margin-top:8px; }
+    .muted { color:#777; font-size:13px; }
   </style>
 </head>
 <body>
-  <div class="ticket-form">
-    <h2>🎉 Party Tickets</h2>
+  <div class="ticket-form" id="checkoutForm">
+    <h2>🎉 FTSC Party Tickets</h2>
     <p class="event-details">
-      Location: Fatima College Hall<br>
-      Time: 2pm – 7pm<br>
-      Date: Saturday 13th December, 2025
+      <strong>Location:</strong> Fatima College Hall<br>
+      <strong>Time:</strong> 2pm – 7pm<br>
+      <strong>Date:</strong> Saturday 13th December, 2025
     </p>
 
-    <label>Quantity:</label>
-    <input type="number" id="quantity" value="1" min="1" max="10" />
+    <label for="quantity">Quantity</label>
+    <input id="quantity" type="number" min="1" max="10" value="1" />
 
     <div id="ticketHolders"></div>
 
     <div class="summary" id="orderSummary">Total: $0.00 USD</div>
 
-    <div id="paypal-button-container" style="margin-top: 20px;"></div>
-    <p class="small">💳 Payments are securely processed in USD through PayPal.</p>
+    <div id="paypal-button-container"></div>
+    <p class="small">💳 Payments processed in USD via PayPal. Make sure you have <strong>success.html</strong> and <strong>cancel.html</strong> in your repo root.</p>
+    <p class="muted">Tip: test with a small amount first to confirm end-to-end flow.</p>
   </div>
 
   <div class="ticket-container" id="ticket"></div>
 
-  <!-- PayPal SDK with your Live Client ID -->
-  <script src="https://www.paypal.com/sdk/js?client-id=AU-zcsGpuxbenKJvMVqN7fJ3wB0c8_pBhiTTH2PtvFuRiGZWOJ13GXJvAd256wDK259aIf_mdK9zqOZw&currency=USD&components=buttons,hosted-fields"></script>
+  <!-- PayPal SDK (Live Client ID inserted) -->
+  <script src="https://www.paypal.com/sdk/js?client-id=AU-zcsGpuxbenKJvMVqN7fJ3wB0c8_pBhiTTH2PtvFuRiGZWOJ13GXJvAd256wDK259aIf_mdK9zqOZw&currency=USD&components=buttons"></script>
   <!-- QR code library -->
   <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
 
   <script>
+    // ---------- Configuration ----------
     const TTD_TO_USD = 0.1465;
     const BACKEND_BASE = "https://ticket-backend-pzfv.onrender.com";
+    const RETURN_URL = "https://studentevents-pixel.github.io/ftsc-events/success.html";
+    const CANCEL_URL = "https://studentevents-pixel.github.io/ftsc-events/cancel.html";
+
+    // ---------- Utilities ----------
+    function formatUSD(n) { return Number(n).toFixed(2); }
 
     function generateTicketId(holderName) {
       const timestamp = Date.now().toString(36);
       const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-      const safeName = holderName.trim().replace(/\s+/g, "_").replace(/[^A-Za-z0-9_-]/g, "");
-      return "FTSC-" + safeName + "-" + timestamp + "-" + random;
+      const safeName = (holderName || "GUEST").trim().replace(/\s+/g, "_").replace(/[^A-Za-z0-9_-]/g, "");
+      return `FTSC-${safeName}-${timestamp}-${random}`;
     }
 
-    function updateValidIds(newId, holderName, amount) {
-      fetch(BACKEND_BASE + "/tickets", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ticketId: newId,
-          name: holderName,
-          amount: amount
-        })
-      })
-      .then(res => {
-        if (!res.ok) throw new Error("Network response was not ok");
-        return res.json();
-      })
-      .then(() => console.log("✅ Stored:", newId))
-      .catch(err => console.error("Backend error:", err));
+    async function postTicketToBackend(ticket) {
+      try {
+        const res = await fetch(`${BACKEND_BASE}/tickets`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(ticket)
+        });
+        if (!res.ok) {
+          const text = await res.text();
+          console.error("Backend error response:", res.status, text);
+          throw new Error("Backend returned error " + res.status);
+        }
+        return await res.json();
+      } catch (err) {
+        console.error("Failed to store ticket:", err);
+        throw err;
+      }
     }
 
+    // ---------- UI rendering ----------
     function renderTicketHolders() {
-      const qty = parseInt(document.getElementById("quantity").value) || 1;
+      const qty = Math.max(1, parseInt(document.getElementById("quantity").value) || 1);
       const container = document.getElementById("ticketHolders");
       container.innerHTML = "";
       for (let i = 1; i <= qty; i++) {
-        container.innerHTML += `
-          <div class="holder-card">
-            <h3>Ticket ${i}</h3>
-            <label>Name:</label>
-            <input type="text" id="holderName${i}" placeholder="Enter full name" required />
-            <label>Select Ticket Type:</label>
-            <select id="ticketType${i}">
-              <option value="100">Under 18 – $100 TTD (~$${(100 * TTD_TO_USD).toFixed(2)} USD)</option>
-              <option value="150">18 and Older – $150 TTD (~$${(150 * TTD_TO_USD).toFixed(2)} USD)</option>
-            </select>
-          </div>
+        const div = document.createElement("div");
+        div.className = "holder-card";
+        div.innerHTML = `
+          <h3 style="margin:0 0 8px 0;">Ticket ${i}</h3>
+          <label for="holderName${i}">Full name</label>
+          <input id="holderName${i}" type="text" placeholder="Enter full name" />
+          <label for="ticketType${i}">Ticket type</label>
+          <select id="ticketType${i}">
+            <option value="100">Under 18 – 100 TTD (~$${formatUSD(100 * TTD_TO_USD)} USD)</option>
+            <option value="150">18 and Older – 150 TTD (~$${formatUSD(150 * TTD_TO_USD)} USD)</option>
+          </select>
         `;
+        container.appendChild(div);
       }
       updateOrderSummary();
-      attachTypeChangeListeners();
-      renderPayPalButtons();
+      renderPayPalButtons(); // re-render buttons so amounts are correct
     }
 
     function updateOrderSummary() {
       let totalUSD = 0;
-      const qty = parseInt(document.getElementById("quantity").value) || 1;
+      const qty = Math.max(1, parseInt(document.getElementById("quantity").value) || 1);
       for (let i = 1; i <= qty; i++) {
-        const typeEl = document.getElementById("ticketType" + i);
-        if (typeEl) {
-          const amountTTD = parseInt(typeEl.value) || 0;
-          totalUSD += amountTTD * TTD_TO_USD;
-        }
+        const sel = document.getElementById("ticketType" + i);
+        if (sel) totalUSD += (parseFloat(sel.value) || 0) * TTD_TO_USD;
       }
-      document.getElementById("orderSummary").textContent = "Total: $" + totalUSD.toFixed(2) + " USD";
+      document.getElementById("orderSummary").textContent = `Total: $${formatUSD(totalUSD)} USD`;
     }
 
-    function attachTypeChangeListeners() {
-      const qty = parseInt(document.getElementById("quantity").value) || 1;
-      for (let i = 1; i <= qty; i++) {
-        const typeEl = document.getElementById("ticketType" + i);
-        if (typeEl) {
-          typeEl.addEventListener("change", () => {
-            updateOrderSummary();
-            renderPayPalButtons();
-          });
-        }
-      }
-    }
-
+    // ---------- PayPal Buttons ----------
+    let paypalButtonsRendered = false;
     function renderPayPalButtons() {
       const container = document.getElementById("paypal-button-container");
       container.innerHTML = "";
 
-      // Ensure PayPal SDK is loaded
       if (!window.paypal) {
         container.textContent = "PayPal SDK failed to load. Refresh the page.";
         return;
       }
 
+      // Avoid rendering multiple times
+      if (paypalButtonsRendered) {
+        // Render a fresh instance by clearing and continuing
+      }
+
       paypal.Buttons({
+        style: { layout: 'vertical', color: 'blue', shape: 'rect', label: 'pay' },
+
+        // Validate inputs before creating order
         createOrder: (data, actions) => {
-          let totalUSD = 0;
-          const qty = parseInt(document.getElementById("quantity").value) || 1;
+          const qty = Math.max(1, parseInt(document.getElementById("quantity").value) || 1);
+          // Validate names
           for (let i = 1; i <= qty; i++) {
-            const amountTTD = parseInt(document.getElementById("ticketType" + i).value) || 0;
+            const name = (document.getElementById("holderName" + i) || {}).value || "";
+            if (!name.trim()) {
+              alert("Please enter a full name for Ticket " + i + " before proceeding.");
+              return actions.reject ? actions.reject() : Promise.reject(new Error("Missing name"));
+            }
+          }
+
+          // Calculate total
+          let totalUSD = 0;
+          for (let i = 1; i <= qty; i++) {
+            const amountTTD = parseFloat((document.getElementById("ticketType" + i) || {}).value) || 0;
             totalUSD += amountTTD * TTD_TO_USD;
           }
-          // Create order with explicit return/cancel URLs to avoid default redirect to homepage
+          if (totalUSD <= 0) {
+            alert("Order total must be greater than $0.00");
+            return actions.reject ? actions.reject() : Promise.reject(new Error("Zero total"));
+          }
+
+          // Create order with properly formatted amount (string with two decimals)
           return actions.order.create({
             purchase_units: [{
               amount: {
                 currency_code: "USD",
-                value: totalUSD.toFixed(2)
+                value: formatUSD(totalUSD)
               }
             }],
             application_context: {
-              return_url: "https://studentevents-pixel.github.io/ftsc-events/success.html",
-              cancel_url: "https://studentevents-pixel.github.io/ftsc-events/cancel.html"
+              return_url: RETURN_URL,
+              cancel_url: CANCEL_URL
             }
           });
         },
+
         onApprove: (data, actions) => {
-          return actions.order.capture().then(() => {
-            // After capture, generate tickets client-side and store them in backend
-            const qty = parseInt(document.getElementById("quantity").value) || 1;
+          // Capture the order and inspect the capture result
+          return actions.order.capture().then(async (captureResult) => {
+            console.log("PayPal capture result:", captureResult);
+
+            // Determine capture status robustly
+            let captureStatus = captureResult.status;
+            try {
+              const captures = captureResult.purchase_units?.[0]?.payments?.captures;
+              if (!captureStatus && captures && captures.length) {
+                captureStatus = captures[0].status;
+              }
+            } catch (e) { /* ignore */ }
+
+            if (captureStatus !== "COMPLETED") {
+              alert("Payment was not completed. Status: " + (captureStatus || "unknown"));
+              console.warn("Capture not completed:", captureResult);
+              return;
+            }
+
+            // Generate tickets and store them
+            const qty = Math.max(1, parseInt(document.getElementById("quantity").value) || 1);
             const ticketsContainer = document.getElementById("ticket");
             ticketsContainer.innerHTML = "";
             ticketsContainer.style.display = "block";
 
             for (let i = 1; i <= qty; i++) {
-              const holderNameEl = document.getElementById("holderName" + i);
-              const holderName = holderNameEl ? holderNameEl.value.trim() : "";
-              const amountTTD = parseInt(document.getElementById("ticketType" + i).value) || 0;
-              if (!holderName) {
-                alert("Please enter a name for Ticket " + i);
-                ticketsContainer.style.display = "none";
-                return;
-              }
-
+              const holderName = (document.getElementById("holderName" + i) || {}).value.trim();
+              const amountTTD = parseFloat((document.getElementById("ticketType" + i) || {}).value) || 0;
               const ticketId = generateTicketId(holderName);
-              updateValidIds(ticketId, holderName, amountTTD);
 
+              // Store ticket in backend (fire-and-log; if backend fails we still show ticket)
+              postTicketToBackend({ ticketId, name: holderName, amount: amountTTD })
+                .then(() => console.log("Stored ticket:", ticketId))
+                .catch(err => console.warn("Could not store ticket:", ticketId, err));
+
+              // Build ticket UI
               const ticketBlock = document.createElement("div");
               ticketBlock.className = "ticket-block";
               ticketBlock.innerHTML = `
@@ -252,38 +241,56 @@
               `;
               ticketsContainer.appendChild(ticketBlock);
 
-              const verifyUrl = BACKEND_BASE + "/verify/" + encodeURIComponent(ticketId);
-              const canvasEl = ticketBlock.querySelector("#qrCanvas" + i);
+              // Generate QR code that points to backend verify route
+              const verifyUrl = `${BACKEND_BASE}/verify/${encodeURIComponent(ticketId)}`;
+              const canvasEl = ticketBlock.querySelector(`#qrCanvas${i}`);
               if (canvasEl && window.QRCode) {
                 QRCode.toCanvas(canvasEl, verifyUrl, { width: 150 }, (error) => {
                   if (error) console.error("QR error:", error);
                 });
-              } else {
-                console.warn("QRCode library not available or canvas missing");
               }
             }
+
+            // Optionally redirect to success page (uncomment if you prefer redirect)
+            // window.location.href = RETURN_URL;
+
           }).catch(err => {
-            console.error("Capture error:", err);
-            alert("Payment captured but an error occurred while finalizing tickets. Check console for details.");
+            console.error("Capture failed:", err);
+            alert("Payment capture failed. Check console for details.");
           });
         },
+
         onCancel: (data) => {
-          alert("Payment cancelled.");
+          alert("Payment cancelled. No tickets were issued.");
         },
+
         onError: (err) => {
           console.error("PayPal Buttons error:", err);
           alert("An error occurred with PayPal. Check console for details.");
         }
       }).render("#paypal-button-container");
+
+      paypalButtonsRendered = true;
     }
 
-    // Initialize page
-    renderTicketHolders();
-
-    // React to quantity changes
+    // ---------- Init ----------
     document.getElementById("quantity").addEventListener("input", () => {
       renderTicketHolders();
     });
+
+    // Recalculate summary when ticket type or name changes
+    document.addEventListener("input", (e) => {
+      if (e.target && (e.target.id?.startsWith("ticketType") || e.target.id?.startsWith("holderName"))) {
+        updateOrderSummary();
+      }
+    });
+
+    // First render
+    renderTicketHolders();
+
+    // ---------- Helpful runtime checks (console) ----------
+    console.info("Checkout initialized. Backend:", BACKEND_BASE);
+    console.info("Make sure success.html and cancel.html exist at the repo root and backend CORS allows this origin.");
   </script>
 </body>
 </html>
