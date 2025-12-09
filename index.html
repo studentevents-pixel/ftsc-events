@@ -61,8 +61,8 @@
 
   <div class="ticket-container" id="ticket"></div>
 
-  <!-- PayPal SDK (Live Client ID inserted) -->
-  <script src="https://www.paypal.com/sdk/js?client-id=AU-zcsGpuxbenKJvMVqN7fJ3wB0c8_pBhiTTH2PtvFuRiGZWOJ13GXJvAd256wDK259aIf_mdK9zqOZw&currency=USD&components=buttons"></script>
+  <!-- PayPal SDK (Live Client ID inserted) - ensure intent=capture -->
+  <script src="https://www.paypal.com/sdk/js?client-id=AU-zcsGpuxbenKJvMVqN7fJ3wB0c8_pBhiTTH2PtvFuRiGZWOJ13GXJvAd256wDK259aIf_mdK9zqOZw&currency=USD&components=buttons&intent=capture"></script>
   <!-- QR code library -->
   <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
 
@@ -99,6 +99,79 @@
       } catch (err) {
         console.error("Failed to store ticket:", err);
         throw err;
+      }
+    }
+
+    // ---------- Helper functions for capture and ticket handling ----------
+    // Handle a successful capture result (client or server)
+    async function handleSuccessfulCapture(captureResult, orderId) {
+      console.log("Handling successful capture for order:", orderId, captureResult);
+
+      // Build tickets UI (same logic you already have)
+      const qty = Math.max(1, parseInt(document.getElementById("quantity").value) || 1);
+      const ticketsContainer = document.getElementById("ticket");
+      ticketsContainer.innerHTML = "";
+      ticketsContainer.style.display = "block";
+
+      for (let i = 1; i <= qty; i++) {
+        const holderName = (document.getElementById("holderName" + i) || {}).value.trim();
+        const amountTTD = parseFloat((document.getElementById("ticketType" + i) || {}).value) || 0;
+        const ticketId = generateTicketId(holderName);
+
+        // Store ticket in backend (fire-and-log)
+        postTicketToBackend({ ticketId, name: holderName, amount: amountTTD })
+          .then(() => console.log("Stored ticket:", ticketId))
+          .catch(err => console.warn("Could not store ticket:", ticketId, err));
+
+        // Build ticket UI
+        const ticketBlock = document.createElement("div");
+        ticketBlock.className = "ticket-block";
+        ticketBlock.innerHTML = `
+          <img src="assets/ticket-template.png" alt="Ticket Template">
+          <canvas id="qrCanvas${i}" width="150" height="150"></canvas>
+          <p style="text-align:center; font-weight:bold; margin-top:10px;">
+            Ticket ${i} — ${holderName}<br>ID: ${ticketId}
+          </p>
+        `;
+        ticketsContainer.appendChild(ticketBlock);
+
+        // Generate QR code
+        const verifyUrl = `${BACKEND_BASE}/verify/${encodeURIComponent(ticketId)}`;
+        const canvasEl = ticketBlock.querySelector(`#qrCanvas${i}`);
+        if (canvasEl && window.QRCode) {
+          QRCode.toCanvas(canvasEl, verifyUrl, { width: 150 }, (error) => {
+            if (error) console.error("QR error:", error);
+          });
+        }
+      }
+
+      // Optional: redirect to success page instead of showing tickets inline
+      // window.location.href = RETURN_URL;
+    }
+
+    // Try server-side capture fallback: POST /capture/:orderId on your backend
+    async function tryServerCaptureFallback(orderId) {
+      try {
+        console.log("Attempting server-side capture fallback for order:", orderId);
+        const resp = await fetch(`${BACKEND_BASE}/capture/${encodeURIComponent(orderId)}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+        if (!resp.ok) {
+          const text = await resp.text();
+          console.warn("Server capture fallback returned non-OK:", resp.status, text);
+          return null;
+        }
+        const json = await resp.json();
+        console.log("Server capture fallback response:", json);
+        // Normalize: if server returns capture object inside purchase_units, extract status
+        let status = json.status || (json.purchase_units?.[0]?.payments?.captures?.[0]?.status);
+        if (!status && json.result?.status) status = json.result.status;
+        json.status = status;
+        return json;
+      } catch (e) {
+        console.error("Server capture fallback error:", e);
+        return null;
       }
     }
 
@@ -193,70 +266,62 @@
           });
         },
 
+        // ---------- REPLACED onApprove: robust client capture + server fallback ----------
         onApprove: (data, actions) => {
-          // Capture the order and inspect the capture result
-          return actions.order.capture().then(async (captureResult) => {
-            console.log("PayPal capture result:", captureResult);
+          console.log("PayPal onApprove data:", data); // shows data.orderID
 
-            // Determine capture status robustly
+          // Prevent double-capture in case of accidental double clicks
+          if (window.__ftscCaptureInProgress) {
+            console.warn("Capture already in progress for this session.");
+            return Promise.resolve();
+          }
+          window.__ftscCaptureInProgress = true;
+
+          // Try client-side capture first (fastest path)
+          return actions.order.capture().then(async (captureResult) => {
+            console.log("PayPal client capture result:", captureResult);
+
+            // Normalize capture status
             let captureStatus = captureResult.status;
             try {
               const captures = captureResult.purchase_units?.[0]?.payments?.captures;
-              if (!captureStatus && captures && captures.length) {
+              if ((!captureStatus || captureStatus === "APPROVED") && captures && captures.length) {
                 captureStatus = captures[0].status;
               }
             } catch (e) { /* ignore */ }
 
-            if (captureStatus !== "COMPLETED") {
-              alert("Payment was not completed. Status: " + (captureStatus || "unknown"));
-              console.warn("Capture not completed:", captureResult);
+            if (captureStatus === "COMPLETED") {
+              // Successful capture: proceed to generate tickets and store them
+              await handleSuccessfulCapture(captureResult, data.orderID);
+              window.__ftscCaptureInProgress = false;
               return;
             }
 
-            // Generate tickets and store them
-            const qty = Math.max(1, parseInt(document.getElementById("quantity").value) || 1);
-            const ticketsContainer = document.getElementById("ticket");
-            ticketsContainer.innerHTML = "";
-            ticketsContainer.style.display = "block";
-
-            for (let i = 1; i <= qty; i++) {
-              const holderName = (document.getElementById("holderName" + i) || {}).value.trim();
-              const amountTTD = parseFloat((document.getElementById("ticketType" + i) || {}).value) || 0;
-              const ticketId = generateTicketId(holderName);
-
-              // Store ticket in backend (fire-and-log; if backend fails we still show ticket)
-              postTicketToBackend({ ticketId, name: holderName, amount: amountTTD })
-                .then(() => console.log("Stored ticket:", ticketId))
-                .catch(err => console.warn("Could not store ticket:", ticketId, err));
-
-              // Build ticket UI
-              const ticketBlock = document.createElement("div");
-              ticketBlock.className = "ticket-block";
-              ticketBlock.innerHTML = `
-                <img src="assets/ticket-template.png" alt="Ticket Template">
-                <canvas id="qrCanvas${i}" width="150" height="150"></canvas>
-                <p style="text-align:center; font-weight:bold; margin-top:10px;">
-                  Ticket ${i} — ${holderName}<br>ID: ${ticketId}
-                </p>
-              `;
-              ticketsContainer.appendChild(ticketBlock);
-
-              // Generate QR code that points to backend verify route
-              const verifyUrl = `${BACKEND_BASE}/verify/${encodeURIComponent(ticketId)}`;
-              const canvasEl = ticketBlock.querySelector(`#qrCanvas${i}`);
-              if (canvasEl && window.QRCode) {
-                QRCode.toCanvas(canvasEl, verifyUrl, { width: 150 }, (error) => {
-                  if (error) console.error("QR error:", error);
-                });
-              }
+            // If capture did not complete, attempt server-side capture fallback
+            console.warn("Client capture not completed. Status:", captureStatus, "Attempting server-side capture fallback.");
+            const serverFallback = await tryServerCaptureFallback(data.orderID);
+            window.__ftscCaptureInProgress = false;
+            if (serverFallback && serverFallback.status === "COMPLETED") {
+              await handleSuccessfulCapture(serverFallback, data.orderID);
+              return;
             }
 
-            // Optionally redirect to success page (uncomment if you prefer redirect)
-            // window.location.href = RETURN_URL;
+            alert("Payment was not completed. Status: " + (captureStatus || "unknown"));
+            console.warn("Capture not completed after fallback:", captureResult, serverFallback);
+            return;
+          }).catch(async (err) => {
+            console.error("Client capture error:", err);
 
-          }).catch(err => {
-            console.error("Capture failed:", err);
-            alert("Payment capture failed. Check console for details.");
+            // Attempt server-side capture fallback if client capture failed (network/CORS/etc)
+            const serverFallback = await tryServerCaptureFallback(data.orderID);
+            window.__ftscCaptureInProgress = false;
+            if (serverFallback && serverFallback.status === "COMPLETED") {
+              await handleSuccessfulCapture(serverFallback, data.orderID);
+              return;
+            }
+
+            alert("Payment capture failed. Please try again or contact support.");
+            return;
           });
         },
 
